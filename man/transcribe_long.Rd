@@ -1,0 +1,42 @@
+% tinyrox says don't edit this manually, but it can't stop you!
+\name{transcribe_long}
+\alias{transcribe_long}
+\title{Transcribe Long Audio}
+\usage{
+transcribe_long(
+  file,
+  model,
+  tokenizer,
+  config,
+  language,
+  task,
+  device,
+  dtype,
+  verbose
+)
+}
+\arguments{
+\item{file}{Audio file}
+
+\item{model}{WhisperModel}
+
+\item{tokenizer}{Tokenizer}
+
+\item{config}{Model config}
+
+\item{language}{Language}
+
+\item{task}{Task}
+
+\item{device}{Device}
+
+\item{dtype}{Dtype}
+
+\item{verbose}{Verbose}
+}
+\value{
+Combined transcription result
+}
+\description{
+Process audio longer than 30 seconds in chunks.
+}

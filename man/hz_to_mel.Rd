@@ -1,0 +1,16 @@
+% tinyrox says don't edit this manually, but it can't stop you!
+\name{hz_to_mel}
+\alias{hz_to_mel}
+\title{Convert Hz to Mel Scale}
+\usage{
+hz_to_mel(hz)
+}
+\arguments{
+\item{hz}{Frequency in Hz}
+}
+\value{
+Frequency in mel scale
+}
+\description{
+Convert Hz to Mel Scale
+}

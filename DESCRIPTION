@@ -1,0 +1,33 @@
+Package: whisper
+Title: Native R 'torch' Implementation of 'OpenAI' 'Whisper'
+Version: 0.1.0
+Authors@R: c(
+    person("Troy", "Hernandez", role = c("aut", "cre"),
+           email = "troy@cornball.ai"),
+    person("cornball.ai", role = "cph"),
+    person("OpenAI", role = "cph",
+           comment = "Whisper model architecture and mel filterbank data (MIT license)")
+  )
+Description: Speech-to-text transcription using a native R 'torch' implementation
+    of 'OpenAI' 'Whisper' model <https://github.com/openai/whisper>. Supports
+    multiple model sizes from tiny (39M parameters) to large-v3 (1.5B parameters)
+    with integrated download from 'HuggingFace' <https://huggingface.co/> via the
+    'hfhub' package. Provides automatic speech recognition with optional language
+    detection and translation to English. Audio preprocessing, mel spectrogram
+    computation, and transformer-based encoder-decoder inference are all
+    implemented in R using the 'torch' package.
+License: MIT + file LICENSE
+Encoding: UTF-8
+URL: https://github.com/cornball-ai/whisper
+BugReports: https://github.com/cornball-ai/whisper/issues
+Imports: torch, av, jsonlite, hfhub, safetensors, stats, utils
+Suggests: tinytest
+NeedsCompilation: no
+Packaged: 2026-02-04 01:07:15 UTC; troy
+Author: Troy Hernandez [aut, cre],
+  cornball.ai [cph],
+  OpenAI [cph] (Whisper model architecture and mel filterbank data (MIT
+    license))
+Maintainer: Troy Hernandez <troy@cornball.ai>
+Repository: CRAN
+Date/Publication: 2026-02-06 20:00:02 UTC

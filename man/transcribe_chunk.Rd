@@ -1,0 +1,42 @@
+% tinyrox says don't edit this manually, but it can't stop you!
+\name{transcribe_chunk}
+\alias{transcribe_chunk}
+\title{Transcribe Single Chunk}
+\usage{
+transcribe_chunk(
+  file,
+  model,
+  tokenizer,
+  config,
+  language = "en",
+  task = "transcribe",
+  device,
+  dtype,
+  verbose = TRUE
+)
+}
+\arguments{
+\item{file}{Audio file or mel spectrogram}
+
+\item{model}{WhisperModel}
+
+\item{tokenizer}{Tokenizer}
+
+\item{config}{Model config}
+
+\item{language}{Language code}
+
+\item{task}{Task type}
+
+\item{device}{Device}
+
+\item{dtype}{Dtype}
+
+\item{verbose}{Verbose output}
+}
+\value{
+Transcription result
+}
+\description{
+Transcribe Single Chunk
+}

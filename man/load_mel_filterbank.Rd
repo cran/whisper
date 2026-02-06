@@ -1,0 +1,16 @@
+% tinyrox says don't edit this manually, but it can't stop you!
+\name{load_mel_filterbank}
+\alias{load_mel_filterbank}
+\title{Load Pre-computed Mel Filterbank}
+\usage{
+load_mel_filterbank(n_mels = 80L)
+}
+\arguments{
+\item{n_mels}{Number of mel bins (80 or 128)}
+}
+\value{
+Mel filterbank matrix (n_mels x n_freqs)
+}
+\description{
+Load the official Whisper mel filterbank from bundled CSV file.
+}

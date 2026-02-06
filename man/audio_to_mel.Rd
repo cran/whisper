@@ -1,0 +1,31 @@
+% tinyrox says don't edit this manually, but it can't stop you!
+\name{audio_to_mel}
+\alias{audio_to_mel}
+\title{Convert Audio to Mel Spectrogram}
+\usage{
+audio_to_mel(file, n_mels = 80L, device = "auto", dtype = "auto")
+}
+\arguments{
+\item{file}{Path to audio file, or numeric vector of audio samples}
+
+\item{n_mels}{Number of mel bins (80 for most models, 128 for large-v3)}
+
+\item{device}{torch device for output tensor}
+
+\item{dtype}{torch dtype for output tensor}
+}
+\value{
+torch tensor of shape (1, n_mels, 3000) for 30s audio
+}
+\description{
+Main preprocessing function that converts audio to the mel spectrogram
+format expected by Whisper.
+}
+\examples{
+\donttest{
+# Convert audio file to mel spectrogram
+audio_file <- system.file("audio", "jfk.mp3", package = "whisper")
+mel <- audio_to_mel(audio_file)
+dim(mel)
+}
+}

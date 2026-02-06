@@ -1,0 +1,19 @@
+# tinyrox says don't edit this manually, but it can't stop you!
+
+export(audio_to_mel)
+export(download_whisper_model)
+export(list_downloaded_models)
+export(list_whisper_models)
+export(load_audio)
+export(load_whisper_model)
+export(model_exists)
+export(transcribe)
+export(whisper_config)
+export(whisper_device)
+export(whisper_dtype)
+export(whisper_tokenizer)
+
+importFrom(stats,setNames)
+importFrom(utils,capture.output)
+importFrom(utils,download.file)
+importFrom(utils,read.csv)

@@ -1,0 +1,25 @@
+% tinyrox says don't edit this manually, but it can't stop you!
+\name{create_mel_filterbank_fallback}
+\alias{create_mel_filterbank_fallback}
+\title{Create Mel Filterbank (Fallback)}
+\usage{
+create_mel_filterbank_fallback(
+  n_fft = WHISPER_N_FFT,
+  n_mels = 80L,
+  sample_rate = WHISPER_SAMPLE_RATE
+)
+}
+\arguments{
+\item{n_fft}{FFT size}
+
+\item{n_mels}{Number of mel bins}
+
+\item{sample_rate}{Audio sample rate}
+}
+\value{
+Mel filterbank matrix (n_mels x n_freqs)
+}
+\description{
+Create a mel filterbank matrix for converting STFT to mel spectrogram.
+Used when pre-computed filterbank is not available.
+}
