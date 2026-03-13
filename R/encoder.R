@@ -24,15 +24,14 @@ whisper_attention <- torch::nn_module(
 
     # Output projection
     self$out <- torch::nn_linear(n_state, n_state)
-
-    self$scale <- self$head_dim ^ (- 0.5)
   },
 
   forward = function(
     x,
     xa = NULL,
     mask = NULL,
-    kv_cache = NULL
+    kv_cache = NULL,
+    need_weights = FALSE
   ) {
     # x: (batch, seq_len, n_state)
     # xa: optional cross-attention input (batch, src_len, n_state)
@@ -72,34 +71,38 @@ whisper_attention <- torch::nn_module(
       }
     }
 
-    # Scaled dot-product attention
-    # (batch, n_head, seq_len, head_dim) @ (batch, n_head, head_dim, src_len)
-    # -> (batch, n_head, seq_len, src_len)
-    scores <- torch::torch_matmul(q, k$transpose(3L, 4L))$mul(self$scale)
+    attn_weights <- NULL
 
-    # Apply mask if provided
-    if (!is.null(mask)) {
-      scores <- scores + mask
+    if (need_weights) {
+      # Manual attention to capture weights for DTW alignment
+      # q: (batch, n_head, seq_len, head_dim)
+      # k: (batch, n_head, src_len, head_dim)
+      scale <- sqrt(self$head_dim)
+      attn_scores <- torch::torch_matmul(q, k$transpose(3L, 4L)) / scale
+      if (!is.null(mask)) {
+        attn_scores <- attn_scores + mask
+      }
+      attn_weights <- torch::nnf_softmax(attn_scores, dim = -1L)
+      attn_output <- torch::torch_matmul(attn_weights, v)
+    } else {
+      # Scaled dot-product attention (dispatches to FlashAttention on GPU)
+      # torch_scaled_dot_product_attention is not yet exported from torch
+      # (will be in next CRAN release). Use get() to avoid R CMD check NOTE.
+      sdpa <- get("torch_scaled_dot_product_attention",
+        envir = asNamespace("torch"))
+      attn_output <- sdpa(q, k, v, is_causal = !is.null(mask))
     }
 
-    # Softmax
-    attn_weights <- torch::nnf_softmax(scores, dim = - 1L)
-
-    # Apply attention to values
-    # (batch, n_head, seq_len, src_len) @ (batch, n_head, src_len, head_dim)
-    # -> (batch, n_head, seq_len, head_dim)
-    attn_output <- torch::torch_matmul(attn_weights, v)
-
-    # Reshape back
-    # (batch, n_head, seq_len, head_dim) -> (batch, seq_len, n_state)
+    # Reshape back: (batch, n_head, seq_len, head_dim) -> (batch, seq_len, n_state)
     attn_output <- attn_output$transpose(2L, 3L)$contiguous()
     attn_output <- attn_output$view(c(batch_size, seq_len, self$n_state))
 
     # Output projection
     output <- self$out(attn_output)
 
-    # Return output and new KV cache (reshaped k, v for efficient caching)
-    list(output = output, kv_cache = list(k = k, v = v))
+    # Return output, KV cache, and optionally attention weights
+    list(output = output, kv_cache = list(k = k, v = v),
+      attn_weights = attn_weights)
   },
 
   reshape_for_attention = function(

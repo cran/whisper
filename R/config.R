@@ -27,7 +27,11 @@ whisper_config <- function(model = "tiny") {
       n_text_state = 384L,
       n_text_head = 6L,
       n_text_layer = 4L,
-      hf_repo = "openai/whisper-tiny"
+      hf_repo = "openai/whisper-tiny",
+      # (layer, head) pairs for cross-attention alignment (0-indexed)
+      alignment_heads = matrix(c(
+        1, 0, 2, 0, 2, 5, 3, 0, 3, 1, 3, 2, 3, 3, 3, 4
+      ), ncol = 2, byrow = TRUE)
     ),
     base = list(
       n_mels = 80L,
@@ -40,7 +44,10 @@ whisper_config <- function(model = "tiny") {
       n_text_state = 512L,
       n_text_head = 8L,
       n_text_layer = 6L,
-      hf_repo = "openai/whisper-base"
+      hf_repo = "openai/whisper-base",
+      alignment_heads = matrix(c(
+        3, 1, 4, 2, 4, 3, 4, 7, 5, 1, 5, 2, 5, 4, 5, 6
+      ), ncol = 2, byrow = TRUE)
     ),
     small = list(
       n_mels = 80L,
@@ -53,7 +60,11 @@ whisper_config <- function(model = "tiny") {
       n_text_state = 768L,
       n_text_head = 12L,
       n_text_layer = 12L,
-      hf_repo = "openai/whisper-small"
+      hf_repo = "openai/whisper-small",
+      alignment_heads = matrix(c(
+        6, 6, 7, 0, 7, 3, 7, 8, 8, 2, 8, 5, 8, 7, 9, 0, 9, 4, 9, 8,
+        9, 10, 10, 0, 10, 1, 10, 2, 10, 3, 10, 6, 10, 11, 11, 2, 11, 4
+      ), ncol = 2, byrow = TRUE)
     ),
     medium = list(
       n_mels = 80L,
@@ -66,7 +77,10 @@ whisper_config <- function(model = "tiny") {
       n_text_state = 1024L,
       n_text_head = 16L,
       n_text_layer = 24L,
-      hf_repo = "openai/whisper-medium"
+      hf_repo = "openai/whisper-medium",
+      alignment_heads = matrix(c(
+        13, 15, 15, 4, 15, 15, 16, 1, 20, 0, 23, 4
+      ), ncol = 2, byrow = TRUE)
     ),
     `large-v3` = list(
       n_mels = 128L,
@@ -79,7 +93,10 @@ whisper_config <- function(model = "tiny") {
       n_text_state = 1280L,
       n_text_head = 20L,
       n_text_layer = 32L,
-      hf_repo = "openai/whisper-large-v3"
+      hf_repo = "openai/whisper-large-v3",
+      alignment_heads = matrix(c(
+        9, 19, 11, 2, 11, 4, 11, 17, 22, 7, 22, 11, 22, 17, 23, 2, 23, 15
+      ), ncol = 2, byrow = TRUE)
     )
   )
 
@@ -101,47 +118,22 @@ whisper_config <- function(model = "tiny") {
 #' @param model Model name (default: "tiny")
 #' @return Named list of special token IDs
 whisper_special_tokens <- function(model = "tiny") {
-  # Load from model's added_tokens.json for accuracy
-  cfg <- whisper_config(model)
-  added_tokens <- load_added_tokens(cfg$hf_repo)
-
-  # Helper to get token with fallback
-  get_token <- function(
-    name,
-    default
-  ) {
-    if (!is.null(added_tokens) && name %in% names(added_tokens)) {
-      as.integer(added_tokens[[name]])
-    } else {
-      default
-    }
+  # large-v3 has extra language tokens that shift IDs by 1
+  if (model == "large-v3") {
+    list(
+      sot = 50258L, eot = 50257L, translate = 50359L,
+      transcribe = 50360L, no_speech = 50363L,
+      no_timestamps = 50364L, timestamp_begin = 50365L,
+      lang_en = 50259L
+    )
+  } else {
+    list(
+      sot = 50258L, eot = 50257L, translate = 50358L,
+      transcribe = 50359L, no_speech = 50362L,
+      no_timestamps = 50363L, timestamp_begin = 50364L,
+      lang_en = 50259L
+    )
   }
-
-  # Extract special tokens, using fallbacks for tokens not in added_tokens.json
-  # (Some models have tokens in vocab.json instead of added_tokens.json)
-  list(
-    sot = get_token("<|startoftranscript|>", 50258L),
-    eot = get_token("<|endoftext|>", 50257L),
-    translate = get_token("<|translate|>", 50358L),
-    transcribe = get_token("<|transcribe|>", 50359L),
-    no_speech = get_token("<|nospeech|>", 50362L),
-    no_timestamps = get_token("<|notimestamps|>", 50363L),
-    timestamp_begin = get_token("<|0.00|>", 50364L),
-    lang_en = get_token("<|en|>", 50259L)
-  )
-}
-
-#' Load Added Tokens from HuggingFace
-#'
-#' @param repo HuggingFace repo ID
-#' @return Named list of token -> ID mappings, or NULL if not found
-load_added_tokens <- function(repo) {
-  tryCatch({
-      path <- hfhub::hub_download(repo, "added_tokens.json")
-      jsonlite::fromJSON(path)
-    }, error = function(e) {
-      NULL
-    })
 }
 
 #' Get Language Token ID
@@ -153,20 +145,36 @@ whisper_lang_token <- function(
   lang = "en",
   model = "tiny"
 ) {
-  # Load from model's added_tokens.json for accuracy
-  cfg <- whisper_config(model)
-  added_tokens <- load_added_tokens(cfg$hf_repo)
+  langs <- whisper_language_table()
 
-  if (!is.null(added_tokens)) {
-    # Look up language token directly
-    token_name <- paste0("<|", lang, "|>")
-    if (token_name %in% names(added_tokens)) {
-      return(as.integer(added_tokens[[token_name]]))
-    }
+  if (!lang %in% names(langs)) {
+    stop("Unknown language: ", lang)
   }
 
-  # Fallback to offset calculation (works for tiny/base/small/medium)
-  langs <- c(
+  50259L + langs[[lang]]
+}
+
+#' Get Language Code from Token ID
+#'
+#' Reverse lookup: convert a language token ID back to a two-letter code.
+#'
+#' @param token_id Integer token ID (e.g., 50259 for English)
+#' @return Two-letter language code
+whisper_lang_from_id <- function(token_id) {
+  offset <- token_id - 50259L
+  langs <- whisper_language_table()
+  idx <- match(offset, langs)
+  if (is.na(idx)) stop("Unknown language token ID: ", token_id)
+  names(langs)[idx]
+}
+
+#' Whisper Language Table
+#'
+#' Returns the named integer vector mapping language codes to offsets.
+#'
+#' @return Named integer vector (language code -> offset from 50259)
+whisper_language_table <- function() {
+  c(
     en = 0L, zh = 1L, de = 2L, es = 3L, ru = 4L, ko = 5L, fr = 6L,
     ja = 7L, pt = 8L, tr = 9L, pl = 10L, ca = 11L, nl = 12L, ar = 13L,
     sv = 14L, it = 15L, id = 16L, hi = 17L, fi = 18L, vi = 19L,
@@ -185,11 +193,5 @@ whisper_lang_token <- function(
     tt = 92L, haw = 93L, ln = 94L, ha = 95L, ba = 96L, jw = 97L,
     su = 98L
   )
-
-  if (!lang %in% names(langs)) {
-    stop("Unknown language: ", lang)
-  }
-
-  50259L + langs[[lang]]
 }
 
