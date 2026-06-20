@@ -6,12 +6,22 @@ Native R torch implementation of OpenAI Whisper for speech-to-text transcription
 
 ```r
 install.packages("whisper")
+torch::install_torch()  # one-time: downloads the C++ backend
 ```
 
 Or install the development version from GitHub:
 
 ```r
 remotes::install_github("cornball-ai/whisper")
+torch::install_torch()
+```
+
+`{whisper}` uses `{torch}` for inference. After installing the R package, `install_torch()` downloads the compiled C++ libraries (Lantern). You only need to run it once.
+
+**littler/r2u users:** If `install_torch()` fails with a permissions error, torch was installed to the system library. Use sudo for the one-time Lantern download:
+
+```bash
+sudo r -e 'torch::install_torch()'
 ```
 
 ## Quick Start
@@ -97,18 +107,54 @@ result <- pipe$transcribe("audio.wav", word_timestamps = TRUE)
 result$words
 ```
 
+## Serving
+
+`serve()` runs an OpenAI-compatible STT server that loads the model once and
+keeps it resident, so a client (or [`{stt.api}`](https://github.com/cornball-ai/stt.api))
+can transcribe over HTTP:
+
+```r
+whisper::serve(model = "small", port = 7809L)
+```
+
+```bash
+curl -X POST http://localhost:7809/v1/audio/transcriptions \
+  -F file=@speech.wav -F response_format=verbose_json
+```
+
+Endpoints: `GET /health`, `POST /v1/audio/transcriptions`, `POST /v1/audio/translations`.
+It's built on base R sockets (no extra dependencies). A systemd unit ships in
+`system.file("whisper.service", package = "whisper")`.
+
+## Performance and hardware notes
+
+- **JIT decode (CUDA).** Each token's decoder forward runs as a single
+  TorchScript call (`jit = TRUE`, the default on CUDA) instead of dozens of
+  per-op R calls, several times faster than the eager path and equivalent
+  token-for-token. Covers greedy and word-timestamp runs; beam search and CPU
+  use the eager decoder.
+- **GTX 16-series fp16 is broken.** The GTX 1630/1650/1660 (TU116/TU117) compute
+  fp16 incorrectly and return NaN (transcription comes out as repeated `!`).
+  `whisper_dtype()` auto-falls back to float32 on those cards; pass
+  `dtype = "float16"` to override.
+- **`whisper_tune_gc()`** is an opt-in helper that tunes torch's CUDA allocator
+  GC. It is largely inert for whisper (whisper is dispatch-bound, not
+  GC-bound — JIT is the lever); it's kept as cheap insurance.
+
 ## Models
 
 | Model | Parameters | Disk (fp32) | English WER | Peak VRAM (CUDA fp16) | Speed* |
 |-------|------------|-------------|-------------|----------------------|--------|
-| tiny | 39M | 151 MB | ~9% | 564 MiB | 5.5s |
-| base | 74M | 290 MB | ~7% | 734 MiB | 1.9s |
-| small | 244M | 967 MB | ~5% | 1,454 MiB | 3.6s |
-| medium | 769M | 3.0 GB | ~4% | 3,580 MiB | 8.6s |
-| large-v3 | 1550M | 6.2 GB | ~3% | 3,892 MiB | 16.7s |
+| tiny | 39M | 151 MB | ~9% | 564 MiB | 1.1s |
+| base | 74M | 290 MB | ~7% | 734 MiB | 1.1s |
+| small | 244M | 967 MB | ~5% | 1,454 MiB | 1.2s |
+| medium | 769M | 3.0 GB | ~4% | 3,580 MiB | 1.3s |
+| large-v3 | 1550M | 6.2 GB | ~3% | 3,892 MiB | 2.7s |
 
-*Speed measured on RTX 5060 Ti transcribing a 17s audio clip with `word_timestamps = TRUE`.
-Peak VRAM includes ~364 MiB torch CUDA context overhead.
+*Speed is a warm transcribe of a 17s clip on an RTX 5060 Ti with
+`word_timestamps = TRUE` (the heavier path; plain greedy is several times
+faster, e.g. large-v3 ~1.4s), excluding one-time model load and JIT
+compilation. Peak VRAM includes ~364 MiB torch CUDA context overhead.
 
 Models are downloaded from HuggingFace and cached in `~/.cache/huggingface/` unless otherwise specified.
 

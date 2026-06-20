@@ -5,10 +5,11 @@
 \usage{
 decode_with_fallback(model, encoder_output, initial_tokens, tokenizer,
                      temperatures = c(0, 0.2, 0.4, 0.6, 0.8, 1),
-                     beam_size = 5L, best_of = 5L, max_length = 448L,
+                     beam_size = 5L, best_of = 5L, max_length = 224L,
                      timestamps = FALSE, word_timestamps = FALSE,
                      compression_ratio_threshold = 2.4, logprob_threshold = -1,
-                     length_penalty = 1, patience = Inf, device)
+                     no_speech_threshold = 0.6, length_penalty = 1,
+                     patience = Inf, jit = TRUE, device)
 }
 \arguments{
 \item{model}{WhisperModel}
@@ -35,9 +36,14 @@ decode_with_fallback(model, encoder_output, initial_tokens, tokenizer,
 
 \item{logprob_threshold}{Min average log probability}
 
+\item{no_speech_threshold}{Skip a window as silence when its no-speech
+probability exceeds this and the decode is not confident.}
+
 \item{length_penalty}{Length penalty for beam search}
 
 \item{patience}{Patience factor for beam search}
+
+\item{jit}{Use the TorchScript greedy decode step on CUDA (default TRUE).}
 
 \item{device}{Device}
 }

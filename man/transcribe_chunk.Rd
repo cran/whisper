@@ -5,10 +5,11 @@
 \usage{
 transcribe_chunk(file, model, tokenizer, config, language = NULL,
                  task = "transcribe", timestamps = FALSE,
-                 word_timestamps = FALSE, beam_size = 1L, temperatures = 0,
-                 best_of = 1L, compression_ratio_threshold = 2.4,
-                 logprob_threshold = -1, length_penalty = 1, patience = Inf,
-                 time_offset = 0, device, dtype, verbose = TRUE)
+                 word_timestamps = FALSE, beam_size = 1L,
+                 temperatures = c(0, 0.2, 0.4, 0.6, 0.8, 1), best_of = 1L,
+                 compression_ratio_threshold = 2.4, logprob_threshold = -1,
+                 no_speech_threshold = 0.6, length_penalty = 1, patience = Inf,
+                 jit = TRUE, time_offset = 0, device, dtype, verbose = TRUE)
 }
 \arguments{
 \item{file}{Audio file or mel spectrogram}
@@ -37,9 +38,14 @@ transcribe_chunk(file, model, tokenizer, config, language = NULL,
 
 \item{logprob_threshold}{Min average log probability before fallback.}
 
+\item{no_speech_threshold}{Skip a window as silence when its no-speech
+probability exceeds this and the decode is not confident.}
+
 \item{length_penalty}{Length penalty exponent for beam search.}
 
 \item{patience}{Patience factor for beam search.}
+
+\item{jit}{Use the TorchScript greedy decode step on CUDA.}
 
 \item{time_offset}{Time offset in seconds for chunk processing.}
 
