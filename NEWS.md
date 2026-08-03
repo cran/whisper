@@ -1,3 +1,71 @@
+# whisper 0.5.1
+
+* `whisper_tune_gc()` no longer initializes CUDA before setting the options
+  it exists to set. torch reads the allocator rates exactly once, at CUDA
+  init, and the function's own device and dtype resolution
+  (`parse_device("auto")`, `parse_dtype()`, and allocating a tensor to
+  measure its element size) triggered that init first -- so the options
+  landed after they had been read, did nothing for the rest of the session,
+  and the usual success message was printed anyway. Device and dtype are
+  now resolved from strings and `nvidia-smi`, which reports GPU name and
+  memory without creating a CUDA context. This matters most where the
+  function is most useful: tuning once at process start, before several
+  models load.
+
+# whisper 0.5.0
+
+* In-process model residency: keep a model's weights as page-locked (pinned)
+  CPU tensors and create/destroy its GPU representation on demand, so
+  switching models on a small GPU is a sub-second DMA copy instead of a
+  full reload from disk.
+
+  ```r
+  res <- resident_load("medium")   # loads, pins weights in host RAM
+  resident_activate(res)           # DMA copy to GPU: ~0.25 s for 1.4 GB
+  resident_transcribe(res, "audio.mp3", timestamps = TRUE)
+  resident_deactivate(res)         # VRAM freed; weights stay pinned in RAM
+  resident_activate(res)           # fast again -- no disk involved
+  resident_unload(res)
+  ```
+
+  Transitions are transactional: a partially-failed activation (e.g. GPU
+  out-of-memory) rolls back to the pinned host state and verifies it; an
+  unverifiable rollback fail-closes the handle. `resident_status()` reports
+  state, per-tensor logical byte counts, and a content identity (weights
+  sha256, HF repo and snapshot revision, resolved dtype). New functions:
+  `resident_load()`, `resident_activate()`, `resident_deactivate()`,
+  `resident_transcribe()`, `resident_status()`, `resident_unload()`.
+
+  `resident_deactivate(release = )` chooses who gets the freed VRAM, and
+  on a small card it is worth ~10x. The default `TRUE` returns the CUDA
+  allocator's blocks to the driver, so other processes see the memory
+  free; the next activation then re-acquires every block from the driver
+  (medium fp32 on a 6 GB card: 948 tensors, 2.85 GB, 9.2 s / 0.31 GB/s).
+  `FALSE` keeps the blocks pooled for the next model in the same process
+  to reuse: the identical activation takes 0.86 s / 3.29 GB/s, which is
+  the card's raw pinned-DMA bandwidth. Weights are freed and `gpu_bytes`
+  reaches zero either way; only the pool differs.
+
+* whisper now requires R >= 4.5.0 (for `tools::sha256sum()`).
+
+# whisper 0.4.1
+
+* `transcribe()` results now carry the shape subtitle tooling expects, so they
+  feed `subtitles::whisper_to_srt()` and `subtitles::whisper_to_ass()`
+  directly:
+
+  ```r
+  x <- whisper::transcribe("video.mp4", timestamps = TRUE)
+  subtitles::whisper_to_srt(x, "video.srt")
+  ```
+
+  A result with segments gains a `data` frame of `from`/`to` timestamp strings
+  and `text`, and class `c("whisper_result", "whisper_transcription")`. The
+  change is additive: `text`, `segments`, and `words` are unchanged, and
+  results without segments (`timestamps = FALSE`) are returned as before. Word
+  timings still require `word_timestamps = TRUE`, which
+  `whisper_to_ass(karaoke = TRUE)` needs.
+
 # whisper 0.4.0
 
 * New `serve()`: a single-process, OpenAI-compatible HTTP STT server
